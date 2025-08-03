@@ -42,17 +42,37 @@ class DataSyncService:
     def __init__(
             self,
             jrpc: MoonrakerClient,
-            printer_name: str,
-            loop: AbstractEventLoop,
+            printer_name_or_loop,
+            loop_or_retries,
             resync_retries: int = 30,
     ) -> None:
+        """
+        Create a new :class:`DataSyncService` instance.
+
+        The constructor previously accepted ``(jrpc, loop, resync_retries)``.  For
+        backwards compatibility that call style is still supported.  When a
+        string is supplied as the second argument the new signature
+        ``(jrpc, printer_name, loop, resync_retries)`` is used.
+        """
         super().__init__()
+
+        if isinstance(printer_name_or_loop, str):
+            printer_name = printer_name_or_loop
+            loop = loop_or_retries
+            retries = resync_retries
+        else:
+            printer_name = "_Default"
+            loop = printer_name_or_loop
+            retries = loop_or_retries
+
         self._jrpc: MoonrakerClient = jrpc
         self._loop: AbstractEventLoop = loop
         self._logger: logging.Logger = logging.getLogger(f'mobileraker.{printer_name}.sync')
         self._queried_for_session: bool = False
         self._objects: Dict[str, Any] = {}
-        self._reset_timelapse_pause: Optional[bool] = None # Helper to reset the timelapse_pause attribute after the printer switched back from paused to printing
+        # Helper to reset the timelapse_pause attribute after the printer switched
+        # back from paused to printing
+        self._reset_timelapse_pause: Optional[bool] = None
         self.klippy_ready: bool = False
         self.server_info: ServerInfo = ServerInfo()
         self.print_stats: PrintStats = PrintStats()
@@ -64,7 +84,7 @@ class DataSyncService:
         self.gcode_response: Optional[str] = None
         self.timelapse_pause: Optional[bool] = None
         self.filament_sensors: Dict[str, FilamentSensor] = {}
-        self.resync_retries: int = resync_retries
+        self.resync_retries: int = retries
         
 
         self._snapshot_listeners: List[Callable[[PrinterSnapshot], None]] = []
@@ -371,12 +391,18 @@ class DataSyncService:
                 self._logger.warning("Not subscribing to updates because either klippy was not ready or session already subed. klippy_ready: %s, _queried_for_session: %s", self.klippy_ready, self._queried_for_session)   
 
             self._logger.info("(Re)Sync completed")
-        except KlippyNotReadyError:
-            self._logger.error("Resync process was not completed. Klippy was not ready after %i retries.", self.resync_retries)
+        except KlippyNotReadyError as err:
+            self._logger.error(
+                "Resync process was not completed. Klippy was not ready after %i retries.",
+                self.resync_retries,
+            )
+            raise TimeoutError from err
         except asyncio.TimeoutError:
             self._logger.warning("Timeout error occured while resyncing...")
+            raise
         except ConnectionError:
             self._logger.warning("Connection error occured while resyncing...")
+            raise
         except asyncio.CancelledError:
             self._logger.info("Resync task was cancelled")
 

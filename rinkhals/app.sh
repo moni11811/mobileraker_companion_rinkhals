@@ -4,11 +4,9 @@
 
 APP_ROOT=$(dirname $(realpath $0))
 
-
 version() {
     grep -o '"version" *: *"[^"]*"' "$APP_ROOT/app.json" | cut -d '"' -f4
 }
-
 
 status() {
     PIDS=$(get_by_name mobileraker.py)
