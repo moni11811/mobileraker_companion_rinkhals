@@ -6,6 +6,7 @@ on:
       version:
         description: 'Version tag for release (e.g. v0.1.0)'
         required: true
+
       kobra_model:
         description: 'Kobra model code (e.g. K3, K2P, KS1, K3M)'
         required: true
@@ -21,7 +22,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Build SWU package
         run: |
           APP_NAME=mobileraker
@@ -30,6 +30,7 @@ jobs:
           cp -r mobileraker mobileraker.py scripts/mobileraker-requirements.txt rinkhals/app.sh rinkhals/app.json "$APP_DIR"/
           python -m pip install -r scripts/mobileraker-requirements.txt --target "$APP_DIR/lib/python3.11/site-packages"
           sed -i "s/0.0.0/${{ github.event.inputs.version }}/" "$APP_DIR/app.json"
+
 
           UPDATE_TMP=dist/update_tmp
           mkdir -p "$UPDATE_TMP/$APP_NAME"
@@ -59,6 +60,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
+
           files: dist/update.swu
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
