@@ -1,6 +1,6 @@
 import asyncio
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from mobileraker.client.moonraker_client import MoonrakerClient
 from mobileraker.data.dtos.moonraker.printer_objects import DisplayStatus, PrintStats, ServerInfo, VirtualSDCard
@@ -13,6 +13,9 @@ class TestDataSyncService(unittest.TestCase):
     def setUp(self):
         self.loop = asyncio.get_event_loop()
         self.jrpc = MagicMock()
+        # ensure jrpc methods behave like async functions
+        self.jrpc.send_and_receive_method = AsyncMock(return_value=({"result": {}}, None))
+        self.jrpc.send_method = AsyncMock(return_value=None)
         self.data_sync_service = DataSyncService(self.jrpc, self.loop, 2)
 
     def test_initialization(self):
@@ -83,8 +86,12 @@ class TestDataSyncService(unittest.TestCase):
         async def mock_send_and_receive_method(method, params=None):
             if method == "server.info":
                 return {"result": {"klippy_state": "ready"}}, None
+            elif method == "printer.objects.list":
+                return {"result": {"objects": list(status_objects.keys())}}, None
             elif method == "printer.objects.query":
                 return {"result": {"status": status_objects}}, None
+            elif method == "server.files.metadata":
+                return {"result": {}}, None
 
         self.jrpc.send_and_receive_method.side_effect = mock_send_and_receive_method
 
@@ -105,8 +112,12 @@ class TestDataSyncService(unittest.TestCase):
         async def mock_send_and_receive_method(method, params=None):
             if method == "server.info":
                 return {"result": {"klippy_state": "ready"}}, None
+            elif method == "printer.objects.list":
+                return {"result": {"objects": []}}, None
             elif method == "printer.objects.query":
                 return {"result": {"status": {}}}, None
+            elif method == "server.files.metadata":
+                return {"result": {}}, None
 
         self.jrpc.send_and_receive_method.side_effect = mock_send_and_receive_method
 
