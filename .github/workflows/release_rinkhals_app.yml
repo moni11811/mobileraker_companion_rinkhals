@@ -7,6 +7,10 @@ on:
         description: 'Version tag for release (e.g. v0.1.0)'
         required: true
 
+      kobra_model:
+        description: 'Kobra model code (e.g. K3, K2P, KS1, K3M)'
+        required: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,20 +22,46 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Prepare app package
+      - name: Build SWU package
         run: |
-          APP_DIR=dist/mobileraker-app
+          APP_NAME=mobileraker
+          APP_DIR=dist/$APP_NAME
           mkdir -p "$APP_DIR"
           cp -r mobileraker mobileraker.py scripts/mobileraker-requirements.txt rinkhals/app.sh rinkhals/app.json "$APP_DIR"/
           python -m pip install -r scripts/mobileraker-requirements.txt --target "$APP_DIR/lib/python3.11/site-packages"
           sed -i "s/0.0.0/${{ github.event.inputs.version }}/" "$APP_DIR/app.json"
-          cd dist && zip -r "mobileraker-rinkhals-${{ github.event.inputs.version }}.zip" mobileraker-app
+
+
+          UPDATE_TMP=dist/update_tmp
+          mkdir -p "$UPDATE_TMP/$APP_NAME"
+          cp -r "$APP_DIR"/* "$UPDATE_TMP/$APP_NAME"/
+          cp rinkhals/update.sh "$UPDATE_TMP/update.sh"
+
+          mkdir -p dist/update_swu
+          tar -C "$UPDATE_TMP" -cf dist/update_swu/setup.tar --exclude='setup.tar' .
+          gzip dist/update_swu/setup.tar
+
+          cd dist
+          case "${{ github.event.inputs.kobra_model }}" in
+            K2P|K3)
+              zip -0 -P U2FsdGVkX19deTfqpXHZnB5GeyQ/dtlbHjkUnwgCi+w= -r update.swu update_swu
+              ;;
+            KS1)
+              zip -0 -P U2FsdGVkX1+lG6cHmshPLI/LaQr9cZCjA8HZt6Y8qmbB7riY -r update.swu update_swu
+              ;;
+            K3M)
+              zip -0 -P 4DKXtEGStWHpPgZm8Xna9qluzAI8VJzpOsEIgd8brTLiXs8fLSu3vRx8o7fMf4h6 -r update.swu update_swu
+              ;;
+            *)
+              echo 'Unknown Kobra model code'; exit 1 ;;
+          esac
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
-          files: dist/mobileraker-rinkhals-${{ github.event.inputs.version }}.zip
+
+          files: dist/update.swu
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,6 +4,12 @@
 
 APP_ROOT=$(dirname $(realpath $0))
 
+
+version() {
+    grep -o '"version" *: *"[^"]*"' "$APP_ROOT/app.json" | cut -d '"' -f4
+}
+
+
 status() {
     PIDS=$(get_by_name mobileraker.py)
     if [ "$PIDS" = "" ]; then
@@ -57,11 +63,16 @@ case "$1" in
         shift
         debug "$@"
         ;;
+    version)
+        version
+        ;;
+
     stop)
         stop
         ;;
     *)
-        echo "Usage: $0 {status|start|stop|debug}" >&2
+        echo "Usage: $0 {status|start|stop|debug|version}" >&2
+
         exit 1
         ;;
 esac
