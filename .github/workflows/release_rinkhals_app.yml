@@ -1,0 +1,37 @@
+name: Release Rinkhals App
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag for release (e.g. v0.1.0)'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prepare app package
+        run: |
+          APP_DIR=dist/mobileraker-app
+          mkdir -p "$APP_DIR"
+          cp -r mobileraker mobileraker.py scripts/mobileraker-requirements.txt rinkhals/app.sh rinkhals/app.json "$APP_DIR"/
+          python -m pip install -r scripts/mobileraker-requirements.txt --target "$APP_DIR/lib/python3.11/site-packages"
+          sed -i "s/0.0.0/${{ github.event.inputs.version }}/" "$APP_DIR/app.json"
+          cd dist && zip -r "mobileraker-rinkhals-${{ github.event.inputs.version }}.zip" mobileraker-app
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          files: dist/mobileraker-rinkhals-${{ github.event.inputs.version }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
