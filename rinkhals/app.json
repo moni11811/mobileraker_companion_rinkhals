@@ -1,0 +1,9 @@
+{
+    "$version": "1",
+    "name": "Mobileraker Companion",
+    "description": "Push notification companion for Mobileraker",
+    "version": "0.0.0",
+    "requirements": {
+        "memory": 30
+    }
+}
