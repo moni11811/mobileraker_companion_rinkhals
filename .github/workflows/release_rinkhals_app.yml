@@ -31,6 +31,7 @@ jobs:
           python -m pip install -r scripts/mobileraker-requirements.txt --target "$APP_DIR/lib/python3.11/site-packages"
           sed -i "s/0.0.0/${{ github.event.inputs.version }}/" "$APP_DIR/app.json"
 
+
           UPDATE_TMP=dist/update_tmp
           mkdir -p "$UPDATE_TMP/$APP_NAME"
           cp -r "$APP_DIR"/* "$UPDATE_TMP/$APP_NAME"/
@@ -59,6 +60,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.version }}
+
           files: dist/update.swu
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
