@@ -6,7 +6,6 @@ on:
       version:
         description: 'Version tag for release (e.g. v0.1.0)'
         required: true
-
       kobra_model:
         description: 'Kobra model code (e.g. K3, K2P, KS1, K3M)'
         required: true
@@ -22,6 +21,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Build SWU package
         run: |
           APP_NAME=mobileraker
