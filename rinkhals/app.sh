@@ -64,11 +64,13 @@ case "$1" in
     version)
         version
         ;;
+
     stop)
         stop
         ;;
     *)
         echo "Usage: $0 {status|start|stop|debug|version}" >&2
+
         exit 1
         ;;
 esac

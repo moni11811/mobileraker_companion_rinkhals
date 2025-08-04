@@ -2,12 +2,14 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
+
 from mobileraker.data.dtos.moonraker.printer_objects import (
     DisplayStatus,
     PrintStats,
     ServerInfo,
     VirtualSDCard,
 )
+
 from mobileraker.service.data_sync_service import DataSyncService
 
 
@@ -15,6 +17,7 @@ class TestDataSyncService(unittest.TestCase):
 
     def setUp(self):
         self.loop = asyncio.get_event_loop()
+
 
         self.jrpc_new = MagicMock()
         self.jrpc_new.send_and_receive_method = AsyncMock(return_value=({"result": {}}, None))
@@ -31,6 +34,7 @@ class TestDataSyncService(unittest.TestCase):
             ("new", self.data_sync_service_new, self.jrpc_new),
             ("legacy", self.data_sync_service_legacy, self.jrpc_legacy),
         ]
+
 
     def test_initialization(self):
         for name, svc, _ in self.services():
@@ -106,6 +110,7 @@ class TestDataSyncService(unittest.TestCase):
             "virtual_sdcard": {"progress": 0.5},
         }
 
+
         for name, svc, jrpc in self.services():
             async def mock_send_and_receive_method(method, params=None):
                 if method == "server.info":
@@ -143,6 +148,7 @@ class TestDataSyncService(unittest.TestCase):
             with self.subTest(signature=name):
                 self.loop.run_until_complete(svc.resync())
                 self.assertTrue(svc.klippy_ready)
+
 
     # def test_resync_klippy_not_ready(self):
     #     # Test resync when Klippy is not ready and then becomes ready after a few retries
