@@ -43,28 +43,32 @@ class MoonrakerClient:
         Returns:
             None
         '''
-        self._logger.info("Trying to connect to: %s api key %s", self.moonraker_uri,
-                          '<NO API KEY>' if self.moonraker_api_key is None else self.moonraker_api_key[
-                              :6] + '##########################')
-        async for websocket in client.connect(self.moonraker_uri,
-                                              extra_headers=None if self.moonraker_api_key is None else [
-                                                  ('X-Api-Key', self.moonraker_api_key)]):
+        self._logger.info(
+            "Trying to connect to: %s api key %s",
+            self.moonraker_uri,
+            '<NO API KEY>' if self.moonraker_api_key is None else self.moonraker_api_key[:6] + '##########################',
+        )
+
+        headers = None if self.moonraker_api_key is None else [('X-Api-Key', self.moonraker_api_key)]
+
+        while True:
             try:
-                self._logger.info("WebSocket connected")
-                self._websocket = websocket
-                if self._rec_task:
-                    self._rec_task.cancel()
-                self._rec_task = self._loop.create_task(
-                    self._start_receiving())
-                self._notify_connection_listeners(True)
-                await self._websocket.wait_closed()
-                self._logger.info("websocket closed ?????...")
+                async with client.connect(self.moonraker_uri, extra_headers=headers) as websocket:
+                    self._logger.info("WebSocket connected")
+                    self._websocket = websocket
+                    if self._rec_task:
+                        self._rec_task.cancel()
+                    self._rec_task = self._loop.create_task(self._start_receiving())
+                    self._notify_connection_listeners(True)
+                    await self._websocket.wait_closed()
+                    self._logger.info("websocket closed")
             except exceptions.ConnectionClosed:
                 self._logger.info("websocket was closed...")
             except Exception as err:
                 self._logger.info("Unexpected exception occured %s", err)
             finally:
                 self._notify_connection_listeners(False)
+                await asyncio.sleep(5)
 
     async def send_method(self, method: str, callback: Optional[Callable[[Dict[str, Any], Optional[str]], Any]] = None, params: Optional[dict] = None, timeout: float = 10.0) -> int:
 
