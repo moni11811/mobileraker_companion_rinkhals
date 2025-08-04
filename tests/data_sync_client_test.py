@@ -2,9 +2,14 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from mobileraker.client.moonraker_client import MoonrakerClient
-from mobileraker.data.dtos.moonraker.printer_objects import DisplayStatus, PrintStats, ServerInfo, VirtualSDCard
-from mobileraker.data.dtos.moonraker.printer_snapshot import PrinterSnapshot
+
+from mobileraker.data.dtos.moonraker.printer_objects import (
+    DisplayStatus,
+    PrintStats,
+    ServerInfo,
+    VirtualSDCard,
+)
+
 from mobileraker.service.data_sync_service import DataSyncService
 
 
@@ -12,120 +17,138 @@ class TestDataSyncService(unittest.TestCase):
 
     def setUp(self):
         self.loop = asyncio.get_event_loop()
-        self.jrpc = MagicMock()
-        # ensure jrpc methods behave like async functions
-        self.jrpc.send_and_receive_method = AsyncMock(return_value=({"result": {}}, None))
-        self.jrpc.send_method = AsyncMock(return_value=None)
-        self.data_sync_service = DataSyncService(self.jrpc, self.loop, 2)
+
+
+        self.jrpc_new = MagicMock()
+        self.jrpc_new.send_and_receive_method = AsyncMock(return_value=({"result": {}}, None))
+        self.jrpc_new.send_method = AsyncMock(return_value=None)
+        self.data_sync_service_new = DataSyncService(self.jrpc_new, "Printer", self.loop, 2)
+
+        self.jrpc_legacy = MagicMock()
+        self.jrpc_legacy.send_and_receive_method = AsyncMock(return_value=({"result": {}}, None))
+        self.jrpc_legacy.send_method = AsyncMock(return_value=None)
+        self.data_sync_service_legacy = DataSyncService(self.jrpc_legacy, self.loop, 2)
+
+    def services(self):
+        return [
+            ("new", self.data_sync_service_new, self.jrpc_new),
+            ("legacy", self.data_sync_service_legacy, self.jrpc_legacy),
+        ]
+
 
     def test_initialization(self):
-        self.assertFalse(self.data_sync_service.klippy_ready)
-        self.assertIsInstance(self.data_sync_service.server_info, ServerInfo)
-        self.assertIsInstance(self.data_sync_service.print_stats, PrintStats)
-        self.assertIsInstance(
-            self.data_sync_service.display_status, DisplayStatus)
-        self.assertIsInstance(
-            self.data_sync_service.virtual_sdcard, VirtualSDCard)
+        for name, svc, _ in self.services():
+            with self.subTest(signature=name):
+                self.assertFalse(svc.klippy_ready)
+                self.assertIsInstance(svc.server_info, ServerInfo)
+                self.assertIsInstance(svc.print_stats, PrintStats)
+                self.assertIsInstance(svc.display_status, DisplayStatus)
+                self.assertIsInstance(svc.virtual_sdcard, VirtualSDCard)
+
+    def test_legacy_signature_defaults_printer_name(self):
+        self.assertEqual(
+            self.data_sync_service_legacy._logger.name,
+            "mobileraker._Default.sync",
+        )
 
     def test_parse_objects_with_print_stats(self):
         status_objects = {
             "print_stats": {"filename": "test.gcode", "state": "printing"}
         }
-        self.data_sync_service._parse_objects(status_objects)
-        self.assertEqual(
-            self.data_sync_service.print_stats.filename, "test.gcode")
-        self.assertEqual(self.data_sync_service.print_stats.state, "printing")
+        for name, svc, _ in self.services():
+            with self.subTest(signature=name):
+                svc._parse_objects(status_objects)
+                self.assertEqual(svc.print_stats.filename, "test.gcode")
+                self.assertEqual(svc.print_stats.state, "printing")
 
     def test_parse_objects_with_display_status(self):
         status_objects = {
             "display_status": {"message": "Printing in progress"}
         }
-        self.data_sync_service._parse_objects(status_objects)
-        self.assertEqual(
-            self.data_sync_service.display_status.message, "Printing in progress")
+        for name, svc, _ in self.services():
+            with self.subTest(signature=name):
+                svc._parse_objects(status_objects)
+                self.assertEqual(svc.display_status.message, "Printing in progress")
 
     def test_parse_objects_with_virtual_sdcard(self):
         status_objects = {
             "virtual_sdcard": {"progress": 0.5}
         }
-        self.data_sync_service._parse_objects(status_objects)
-        self.assertEqual(self.data_sync_service.virtual_sdcard.progress, 0.5)
+        for name, svc, _ in self.services():
+            with self.subTest(signature=name):
+                svc._parse_objects(status_objects)
+                self.assertEqual(svc.virtual_sdcard.progress, 0.5)
 
     def test_parse_objects_with_all_status_objects(self):
         status_objects = {
             "print_stats": {"filename": "test.gcode", "state": "printing"},
             "display_status": {"message": "Printing in progress"},
-            "virtual_sdcard": {"progress": 0.5}
+            "virtual_sdcard": {"progress": 0.5},
         }
-        self.data_sync_service._parse_objects(status_objects)
-        self.assertEqual(
-            self.data_sync_service.print_stats.filename, "test.gcode")
-        self.assertEqual(self.data_sync_service.print_stats.state, "printing")
-        self.assertEqual(
-            self.data_sync_service.display_status.message, "Printing in progress")
-        self.assertEqual(self.data_sync_service.virtual_sdcard.progress, 0.5)
+        for name, svc, _ in self.services():
+            with self.subTest(signature=name):
+                svc._parse_objects(status_objects)
+                self.assertEqual(svc.print_stats.filename, "test.gcode")
+                self.assertEqual(svc.print_stats.state, "printing")
+                self.assertEqual(svc.display_status.message, "Printing in progress")
+                self.assertEqual(svc.virtual_sdcard.progress, 0.5)
 
     def test_parse_objects_with_no_status_objects(self):
         status_objects = {}
-        self.data_sync_service._parse_objects(status_objects)
-        # Verify that the attributes are not changed
-        self.assertIsNone(self.data_sync_service.print_stats.filename)
-        self.assertEqual(self.data_sync_service.print_stats.state, "error")
-        self.assertIsNone(self.data_sync_service.display_status.message)
-        self.assertEqual(self.data_sync_service.virtual_sdcard.progress, 0)
+        for name, svc, _ in self.services():
+            with self.subTest(signature=name):
+                svc._parse_objects(status_objects)
+                self.assertIsNone(svc.print_stats.filename)
+                self.assertEqual(svc.print_stats.state, "error")
+                self.assertIsNone(svc.display_status.message)
+                self.assertEqual(svc.virtual_sdcard.progress, 0)
 
     def test_resync_with_parse_objects(self):
-        # Simulate status objects returned by the MoonrakerClient
         status_objects = {
             "print_stats": {"filename": "test.gcode", "state": "printing"},
             "display_status": {"message": "Printing in progress"},
-            "virtual_sdcard": {"progress": 0.5}
+            "virtual_sdcard": {"progress": 0.5},
         }
 
-        # Set the side_effect for send_and_receive_method to return the status_objects
-        async def mock_send_and_receive_method(method, params=None):
-            if method == "server.info":
-                return {"result": {"klippy_state": "ready"}}, None
-            elif method == "printer.objects.list":
-                return {"result": {"objects": list(status_objects.keys())}}, None
-            elif method == "printer.objects.query":
-                return {"result": {"status": status_objects}}, None
-            elif method == "server.files.metadata":
-                return {"result": {}}, None
 
-        self.jrpc.send_and_receive_method.side_effect = mock_send_and_receive_method
+        for name, svc, jrpc in self.services():
+            async def mock_send_and_receive_method(method, params=None):
+                if method == "server.info":
+                    return {"result": {"klippy_state": "ready"}}, None
+                elif method == "printer.objects.list":
+                    return {"result": {"objects": list(status_objects.keys())}}, None
+                elif method == "printer.objects.query":
+                    return {"result": {"status": status_objects}}, None
+                elif method == "server.files.metadata":
+                    return {"result": {}}, None
 
-        # Call resync and verify the updated attributes using public methods
-        self.loop.run_until_complete(self.data_sync_service.resync())
+            jrpc.send_and_receive_method.side_effect = mock_send_and_receive_method
 
-        self.assertEqual(
-            self.data_sync_service.print_stats.filename, "test.gcode")
-        self.assertEqual(
-            self.data_sync_service.print_stats.state, "printing")
-        self.assertEqual(
-            self.data_sync_service.display_status.message, "Printing in progress")
-        self.assertEqual(
-            self.data_sync_service.virtual_sdcard.progress, 0.5)
+            with self.subTest(signature=name):
+                self.loop.run_until_complete(svc.resync())
+                self.assertEqual(svc.print_stats.filename, "test.gcode")
+                self.assertEqual(svc.print_stats.state, "printing")
+                self.assertEqual(svc.display_status.message, "Printing in progress")
+                self.assertEqual(svc.virtual_sdcard.progress, 0.5)
 
     def test_resync_klippy_ready(self):
-        # Test resync when Klippy is ready
-        async def mock_send_and_receive_method(method, params=None):
-            if method == "server.info":
-                return {"result": {"klippy_state": "ready"}}, None
-            elif method == "printer.objects.list":
-                return {"result": {"objects": []}}, None
-            elif method == "printer.objects.query":
-                return {"result": {"status": {}}}, None
-            elif method == "server.files.metadata":
-                return {"result": {}}, None
+        for name, svc, jrpc in self.services():
+            async def mock_send_and_receive_method(method, params=None):
+                if method == "server.info":
+                    return {"result": {"klippy_state": "ready"}}, None
+                elif method == "printer.objects.list":
+                    return {"result": {"objects": []}}, None
+                elif method == "printer.objects.query":
+                    return {"result": {"status": {}}}, None
+                elif method == "server.files.metadata":
+                    return {"result": {}}, None
 
-        self.jrpc.send_and_receive_method.side_effect = mock_send_and_receive_method
+            jrpc.send_and_receive_method.side_effect = mock_send_and_receive_method
 
-        self.loop.run_until_complete(self.data_sync_service.resync())
+            with self.subTest(signature=name):
+                self.loop.run_until_complete(svc.resync())
+                self.assertTrue(svc.klippy_ready)
 
-        # Assert that the data is updated correctly after resync
-        self.assertTrue(self.data_sync_service.klippy_ready)
-        # Add more assertions for other updated attributes if applicable
 
     # def test_resync_klippy_not_ready(self):
     #     # Test resync when Klippy is not ready and then becomes ready after a few retries
@@ -146,16 +169,16 @@ class TestDataSyncService(unittest.TestCase):
     #     self.assertTrue(self.data_sync_service.klippy_ready)
 
     def test_resync_klippy_not_ready_timeout(self):
-        # Test resync when Klippy is not ready and it times out after 2 retries
-        async def mock_send_and_receive_method(method, params=None):
-            if method == "server.info":
-                return {"result": {"klippy_state": "not_ready"}}, None
+        for name, svc, jrpc in self.services():
+            async def mock_send_and_receive_method(method, params=None):
+                if method == "server.info":
+                    return {"result": {"klippy_state": "not_ready"}}, None
 
-        self.jrpc.send_and_receive_method.side_effect = mock_send_and_receive_method
+            jrpc.send_and_receive_method.side_effect = mock_send_and_receive_method
 
-        # Run resync and assert that it raises TimeoutError after 2 retries
-        with self.assertRaises(TimeoutError):
-            self.loop.run_until_complete(self.data_sync_service.resync())
+            with self.subTest(signature=name):
+                with self.assertRaises(TimeoutError):
+                    self.loop.run_until_complete(svc.resync())
 
     # Add more test cases for other methods as needed
 
