@@ -2,7 +2,10 @@ import logging
 from asyncio import AbstractEventLoop
 from typing import Optional
 
-import requests
+try:
+    import requests  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - dependency might exist
+    from mobileraker.util import simple_requests as requests
 
 from mobileraker.data.dtos.mobileraker.companion_request_dto import FcmRequestDto
 

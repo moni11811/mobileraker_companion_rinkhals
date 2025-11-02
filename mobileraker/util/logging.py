@@ -5,7 +5,11 @@ import os
 from queue import SimpleQueue as Queue
 import sys
 import traceback
-import coloredlogs
+
+try:
+    import coloredlogs  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - dependency might exist
+    coloredlogs = None  # type: ignore
 
 # Rotating file handler based on MobilerakerCompanion, Klipper and Moonraker's implementation
 
@@ -35,8 +39,14 @@ class MobilerakerCompanionLoggingHandler(logging.handlers.RotatingFileHandler):
 # Logging based on Arksine's logging setup
 def setup_logging(log_file, software_version):
     root_logger = logging.getLogger()
-    coloredlogs.install(
-        logger=root_logger, fmt=f'%(asctime)s %(name)s %(levelname)s %(message)s', level=logging.INFO)
+    if coloredlogs is not None:
+        coloredlogs.install(
+            logger=root_logger, fmt=f'%(asctime)s %(name)s %(levelname)s %(message)s', level=logging.INFO)
+    else:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s %(name)s %(levelname)s %(message)s',
+        )
 
     # Check if provided log_file is a file or a directory
     if os.path.isdir(log_file):
@@ -44,6 +54,7 @@ def setup_logging(log_file, software_version):
 
     root_logger.info(f"Logging to file: {os.path.normpath(log_file)}")
     try:
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
         fh = MobilerakerCompanionLoggingHandler(
             software_version, log_file, maxBytes=4194304, backupCount=3)
         formatter = logging.Formatter(

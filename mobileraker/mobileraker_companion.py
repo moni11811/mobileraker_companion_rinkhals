@@ -7,7 +7,10 @@ from typing import Dict, List, Optional, Union
 import time
 
 
-import requests
+try:
+    import requests  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - dependency might exist
+    from mobileraker.util import simple_requests as requests
 from mobileraker.client.mobileraker_fcm_client import MobilerakerFcmClient
 from mobileraker.client.moonraker_client import MoonrakerClient
 from mobileraker.client.webcam_snapshot_client import WebcamSnapshotClient

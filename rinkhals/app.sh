@@ -23,6 +23,7 @@ start() {
 
     mkdir -p $RINKHALS_HOME/mobileraker/logs
     mkdir -p $RINKHALS_HOME/printer_data/config
+    mkdir -p $RINKHALS_HOME/printer_data/logs
     rm -f $RINKHALS_HOME/printer_data/config/moonraker.conf
     ln -s $RINKHALS_HOME/printer_data/config/moonraker.generated.conf $RINKHALS_HOME/printer_data/config/moonraker.conf
 
