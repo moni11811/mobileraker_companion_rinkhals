@@ -4,7 +4,16 @@ import logging
 import os
 import pathlib
 from typing import Any, Dict, List, Optional, Union
-from dateutil import tz
+
+try:
+    from dateutil import tz  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - dependency might exist
+    tz = None  # type: ignore
+
+try:
+    from zoneinfo import ZoneInfo
+except ModuleNotFoundError:  # pragma: no cover - Python < 3.9
+    ZoneInfo = None  # type: ignore
 
 home_dir = os.path.expanduser("~/")
 companion_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
@@ -25,11 +34,16 @@ def get_local_timezone() -> str:
     return: The local timezone.
     """
     # Get the system's current local timezone
-    local_timezone = tz.tzlocal()
-    # Convert the timezone to a string representation
-    timezone_abbr = local_timezone.tzname(datetime.datetime.now())
+    if tz is not None:
+        local_timezone = tz.tzlocal()
+        timezone_abbr = local_timezone.tzname(datetime.datetime.now())
+        if timezone_abbr:
+            return timezone_abbr
 
-    return timezone_abbr if timezone_abbr is not None else 'UTC'
+    try:
+        return datetime.datetime.now(datetime.timezone.utc).astimezone().tzname() or 'UTC'
+    except Exception:
+        return 'UTC'
 
 class CompanionRemoteConfig:
 
@@ -90,8 +104,16 @@ class CompanionLocalConfig:
         self.timezone_str: str = self.config.get(
             'general', 'timezone', fallback=get_local_timezone())  # fallback to system timezone (Hopefully)
 
-        parsed_tz = tz.gettz(self.timezone_str)
-        self.timezone: datetime.tzinfo = parsed_tz if parsed_tz is not None else tz.UTC
+        parsed_tz = None
+        if tz is not None:
+            parsed_tz = tz.gettz(self.timezone_str)
+        elif ZoneInfo is not None:
+            try:
+                parsed_tz = ZoneInfo(self.timezone_str)
+            except Exception:
+                parsed_tz = None
+
+        self.timezone: datetime.tzinfo = parsed_tz if parsed_tz is not None else datetime.timezone.utc
         self.eta_format: str = self.config.get(
             'general', 'eta_format', fallback='%d.%m.%Y, %H:%M:%S')
         self.include_snapshot: bool = self.config.getboolean(

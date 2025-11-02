@@ -2,8 +2,15 @@ from io import BytesIO
 import logging
 from typing import Optional, Union
 
-from PIL import Image, ImageOps
-import requests
+try:
+    from PIL import Image, ImageOps  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    Image = ImageOps = None  # type: ignore
+
+try:
+    import requests  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - dependency might exist
+    from mobileraker.util import simple_requests as requests
 
 from mobileraker.data.dtos.moonraker.webcam_data import WebcamData
 
@@ -80,6 +87,11 @@ class WebcamSnapshotClient:
             Optional[bytes]: The processed snapshot image as bytes if successful, or None on failure.
         """
         self.logger.info("Capturing snapshot from webcam: %s at %s", self.name, self.uri)
+        if Image is None or ImageOps is None:
+            self.logger.warning(
+                "Pillow is not available, skipping snapshot capture for webcam %s", self.name
+            )
+            return None
         try:
             res = requests.get(self.uri, timeout=5)
             res.raise_for_status()
@@ -116,5 +128,5 @@ class WebcamSnapshotClient:
             self.logger.error("HTTP error while connecting to webcam: %s - %s", self.name, str(e))
         except Exception as e:
             self.logger.error("Error processing snapshot from %s: %s", self.name, str(e))
-            
+
         return None
